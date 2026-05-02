@@ -1,5 +1,6 @@
 from flask import Flask, request
 import requests
+import json
 
 app = Flask(__name__)
 
@@ -22,7 +23,11 @@ def send_kakao(message):
     res = requests.post(
         "https://kapi.kakao.com/v2/api/talk/memo/default/send",
         headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
-        data={"template_object": f'{{"object_type":"text","text":"{message}","link":{{"web_url":"https://www.tradingview.com"}}}}'}
+        data={"template_object": json.dumps({
+            "object_type": "text",
+            "text": message,
+            "link": {"web_url": "https://www.tradingview.com"}
+        })}
     )
     if res.status_code == 401:
         refresh_access_token()
@@ -30,8 +35,16 @@ def send_kakao(message):
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    data = request.json or {}
-    message = data.get("text", str(data))
+    # JSON, text 둘 다 처리
+    try:
+        data = request.get_json(force=True, silent=True)
+        if data:
+            message = data.get("text", str(data))
+        else:
+            message = request.get_data(as_text=True)
+    except:
+        message = request.get_data(as_text=True)
+    
     send_kakao(message)
     return "OK", 200
 
