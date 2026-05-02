@@ -41,10 +41,10 @@ def send_kakao(message):
             })},
             timeout=10
         )
+        print(f"Kakao response: {res.status_code} {res.text}")
         if res.status_code == 401:
             refresh_access_token()
-            # 갱신 후 1회만 재시도
-            requests.post(
+            res2 = requests.post(
                 "https://kapi.kakao.com/v2/api/talk/memo/default/send",
                 headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
                 data={"template_object": json.dumps({
@@ -54,6 +54,7 @@ def send_kakao(message):
                 })},
                 timeout=10
             )
+            print(f"Kakao retry response: {res2.status_code} {res2.text}")
     except Exception as e:
         print(f"Kakao send failed: {e}")
 
