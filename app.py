@@ -28,7 +28,6 @@ def webhook():
             message = request.get_data(as_text=True)
     except:
         message = request.get_data(as_text=True)
-
     send_telegram(message)
     return "OK", 200
 
