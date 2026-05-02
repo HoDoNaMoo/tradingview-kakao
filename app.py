@@ -11,31 +11,54 @@ CLIENT_SECRET = "elU9tgpvg6BKdtSl3Heee5UCxLy2FUsw"
 
 def refresh_access_token():
     global ACCESS_TOKEN
-    res = requests.post("https://kauth.kakao.com/oauth/token", data={
-        "grant_type": "refresh_token",
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET,
-        "refresh_token": REFRESH_TOKEN
-    })
-    ACCESS_TOKEN = res.json().get("access_token", ACCESS_TOKEN)
+    try:
+        res = requests.post(
+            "https://kauth.kakao.com/oauth/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": CLIENT_ID,
+                "client_secret": CLIENT_SECRET,
+                "refresh_token": REFRESH_TOKEN
+            },
+            timeout=10
+        )
+        new_token = res.json().get("access_token")
+        if new_token:
+            ACCESS_TOKEN = new_token
+    except Exception as e:
+        print(f"Token refresh failed: {e}")
 
 def send_kakao(message):
-    res = requests.post(
-        "https://kapi.kakao.com/v2/api/talk/memo/default/send",
-        headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
-        data={"template_object": json.dumps({
-            "object_type": "text",
-            "text": message,
-            "link": {"web_url": "https://www.tradingview.com"}
-        })}
-    )
-    if res.status_code == 401:
-        refresh_access_token()
-        send_kakao(message)
+    global ACCESS_TOKEN
+    try:
+        res = requests.post(
+            "https://kapi.kakao.com/v2/api/talk/memo/default/send",
+            headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+            data={"template_object": json.dumps({
+                "object_type": "text",
+                "text": message,
+                "link": {"web_url": "https://www.tradingview.com"}
+            })},
+            timeout=10
+        )
+        if res.status_code == 401:
+            refresh_access_token()
+            # 갱신 후 1회만 재시도
+            requests.post(
+                "https://kapi.kakao.com/v2/api/talk/memo/default/send",
+                headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+                data={"template_object": json.dumps({
+                    "object_type": "text",
+                    "text": message,
+                    "link": {"web_url": "https://www.tradingview.com"}
+                })},
+                timeout=10
+            )
+    except Exception as e:
+        print(f"Kakao send failed: {e}")
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    # JSON, text 둘 다 처리
     try:
         data = request.get_json(force=True, silent=True)
         if data:
@@ -44,7 +67,7 @@ def webhook():
             message = request.get_data(as_text=True)
     except:
         message = request.get_data(as_text=True)
-    
+
     send_kakao(message)
     return "OK", 200
 
